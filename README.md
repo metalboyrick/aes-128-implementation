@@ -21,8 +21,11 @@ make
 ```
 Then you can run the program with the following command:
 ```
-./main.out
+./main.out <mode> <text>
 ```
+- The ```<mode>``` parameter toggles encryption or decryption, for encryption, use ```-e```, for decryption use ```-d```.
+- The ```<text>``` is the text to be processed.
+
 To clean the compilation files , use:
 ```
 make clean
