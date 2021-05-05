@@ -4,7 +4,7 @@ make_aes: main.o aes.o
 main.o: main.c
 	gcc -g -c main.c
 
-aes.o: aes.c aes.h
+aes.o: aes.h aes.c 
 	gcc -g -c aes.c
 
 clean:
