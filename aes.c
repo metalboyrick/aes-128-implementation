@@ -116,12 +116,12 @@ void sub_word(uint8_t* word){
 
 
 /*
-	Function to calculate and obtain the next key in the key schedule
+	Function to calculate all the key expansion for AES 128
 	Note: only works for AES-128
 	@param (uint8_t* key) current key state to be scheduled (an array of 18, 1 byte each )
 	@return (uint8_t*) The new scheduled key
 */
-uint8_t* key_schedule(uint8_t* key){
+void key_expansion(uint8_t* key){
 	static const int N = 4;
 	static const int R = 11;
 
@@ -157,10 +157,7 @@ uint8_t* key_schedule(uint8_t* key){
 		printf("%x ", round_keys[i]);
 	}
 	printf("\n");
-
-	return round_keys;
 }
-
 
 /*-----------------------------------------------------------------------------------------------*/
 
