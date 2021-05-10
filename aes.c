@@ -118,8 +118,6 @@ void print_encrypt_result() {
 	printf("\n");
 }
 
-
-
 /*-----------------------------------------------------------------------------------------------*/
 
 /*--------------------------------------------ADD ROUND KEYS-------------------------------------*/
@@ -208,6 +206,40 @@ void shift_rows(uint8_t* block){
 
 }
 
+/*
+	Function to revert the shift rows operation
+	@params (uint8_t* block) pointer to a block
+	@returns None
+*/
+void inv_shift_rows(uint8_t* block){
+		// helper variables
+	uint8_t temp = 0;
+	uint8_t temp1 = 0;
+
+	// row 0 is not shifted at all
+	// shift row 1 
+	temp = block[7];
+	block[7] = block[6];
+	block[6] = block[5];
+	block[5] = block[4];
+	block[4] = temp;
+
+	// shift row 2
+	temp = block[8];
+	temp1 = block[9];
+	block[8] = block[10];
+	block[9] = block[11];
+	block[10] = temp;
+	block[11] = temp1;
+
+	// shift row 3
+	temp = block[12];
+	block[12] = block[13];
+	block[13] = block[14];
+	block[14] = block[15];
+	block[15] = temp;
+}
+
 /*-----------------------------------------------------------------------------------------------*/
 
 
@@ -234,6 +266,13 @@ char* encrypt(char* ptext){
 	for(int i = 16; i < 32; i++){
 		printf("%x ", sample_key[i]);
 	}
+	printf("\n");
+	inv_shift_rows(block2);
+	printf("invrowshift:");
+	for(int i = 16; i < 32; i++){
+		printf("%x ", sample_key[i]);
+	}
+	printf("\n");
 
 	// try the sub cipher in one block 
 	
