@@ -9,7 +9,6 @@
 #include <time.h>
 
 // helper variables
-extern int test;
 extern uint8_t init_vector[16];
 extern uint8_t secret_key[16];
 
