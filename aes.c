@@ -139,9 +139,9 @@ uint8_t* key_schedule(uint8_t* key){
 			round_keys[i * 4 + 3] = key[i * 4 + 3];
 		} else if ((i >= N) && (i % N == 0)) {
 			round_keys[i * 4] = (round_keys[(i - N) * 4] ^ S_BOX[round_keys[(i - 1) * 4 + 1]]) ^ R_CON[i/N];
-			round_keys[i * 4 + 1] = (round_keys[(i - N) * 4 + 1] ^ S_BOX[round_keys[(i - 1) * 4 + 2]]) ^ R_CON[i/N];
-			round_keys[i * 4 + 2] = (round_keys[(i - N) * 4 + 2] ^ S_BOX[round_keys[(i - 1) * 4 + 3]]) ^ R_CON[i/N];
-			round_keys[i * 4 + 3] = (round_keys[(i - N) * 4 + 3] ^ S_BOX[round_keys[(i - 1) * 4]]) ^ R_CON[i/N];
+			round_keys[i * 4 + 1] = (round_keys[(i - N) * 4 + 1] ^ S_BOX[round_keys[(i - 1) * 4 + 2]]);
+			round_keys[i * 4 + 2] = (round_keys[(i - N) * 4 + 2] ^ S_BOX[round_keys[(i - 1) * 4 + 3]]);
+			round_keys[i * 4 + 3] = (round_keys[(i - N) * 4 + 3] ^ S_BOX[round_keys[(i - 1) * 4]]);
 		} else {
 			round_keys[i * 4] = round_keys[(i - N) * 4] ^ round_keys[(i - 1) * 4];
 			round_keys[i * 4 + 1] = round_keys[(i - N) * 4 + 1] ^ round_keys[(i - 1) * 4 + 1];
@@ -217,10 +217,10 @@ char* encrypt(char* ptext){
 	gen_key();
 	gen_iv();
 
-	uint8_t sample_key[16] = {0xff,0xff,0xff,0xff
-							,0xff,0xff,0xff,0xff
-							,0xff,0xff,0xff,0xff
-							,0xff,0xff,0xff,0xff};
+	uint8_t sample_key[16] = {0x00,0x00,0x00,0x00
+							,0x00,0x00,0x00,0x00
+							,0x00,0x00,0x00,0x00
+							,0x00,0x00,0x00,0x00};
 
 	key_schedule(sample_key);
 	
