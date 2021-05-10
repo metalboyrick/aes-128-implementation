@@ -75,45 +75,54 @@ uint8_t gen_alphanum(){
     return alphanum[rand() % (sizeof(alphanum) - 1)];
 }
 
+/*
+	Function to generate initialization vector
+	@params None
+	@return (int) 0 if successful, -1 if failed
+*/
+uint32_t gen_iv(){
 
-// 	Function to find the s box value of a particular 1-byte integer
-// 	@params (uint8_t number) the number to be found
-// 	@return (uint8_t) the s_box value of the number
+	for (int i = 0 ; i < MAX_BYTE; i++){
+		init_vector[i] = gen_alphanum();
+	}
+}
 
-// uint8_t get_s_box(uint8_t number){
 
-// 	// get the 4 MSBs in the front
-// 	uint8_t msb =  
+/*
+	Function to generate initialization vector
+	@params None
+	@return (int) 0 if successful, -1 if failed
+*/
+uint32_t gen_key(){
 
-// 	return 0;
-// }
+	for (int i = 0 ; i < MAX_BYTE; i++){
+		secret_key[i] = gen_alphanum();
+	}
+}
+
+/*
+	Function to print the encryption result
+	@params None
+	@return None
+*/
+void print_encrypt_result() {
+
+	printf("IV: ");
+	for(int i = 0 ; i < MAX_BYTE; i++){
+		printf("%c", init_vector[i]);
+	}
+	printf("\nSECRET KEY: ");
+	for(int i = 0 ; i < MAX_BYTE; i++){
+		printf("%c", secret_key[i]);
+	}
+	printf("\n");
+}
+
+
 
 /*-----------------------------------------------------------------------------------------------*/
 
 /*--------------------------------------------ADD ROUND KEYS-------------------------------------*/
-
-/*
-	Function to perform word rotation on key (one-byte left shift)
-	@param (uint8_t* word) an array of 4 bytes, forming the 32-bit word
-	@return none
-*/
-void rot_word(uint8_t* word){
-	uint8_t temp_word = word[0];
-	word[0] = word[1];
-	word[1] = word[2];
-	word[2] = word[3];
-	word[3] = temp_word;
-}
-
-/*
-	Function to perform word substitution via the sub box
-	@param (uint8_t* word) an array of 4 bytes, forming the 32-bit word
-	@return none
-*/
-void sub_word(uint8_t* word){
-	for(int i = 0 ; i < 4; i++) word[i] = S_BOX[word[i]];
-}
-
 
 /*
 	Function to calculate all the key expansion for AES 128
@@ -152,61 +161,55 @@ void key_expansion(uint8_t* key){
 	}
 
 
-	printf("key mix 1:");
-	for(int i = 0 ; i < 176; i++){
-		printf("%x ", round_keys[i]);
-	}
-	printf("\n");
+	// printf("expand key:");
+	// for(int i = 0 ; i < 176; i++){
+	// 	printf("%x ", round_keys[i]);
+	// }
+	// printf("\n");
 }
 
 /*-----------------------------------------------------------------------------------------------*/
 
-/*--------------------------------------------RANDOM GENERATORS----------------------------------*/
+/*--------------------------------------------SHIFT ROWS-----------------------------------------*/
 
 /*
-	Function to generate initialization vector
-	@params None
-	@return (int) 0 if successful, -1 if failed
+	Function to perform the shift row operation on a block of the plaintext
+	@params (uint8_t* block) pointer to a block
+	@returns None
 */
-uint32_t gen_iv(){
+void shift_rows(uint8_t* block){
 
-	for (int i = 0 ; i < MAX_BYTE; i++){
-		init_vector[i] = gen_alphanum();
-	}
-}
+	// helper variables
+	uint8_t temp = 0;
+	uint8_t temp1 = 0;
 
+	// row 0 is not shifted at all
+	// shift row 1 
+	temp = block[4];
+	block[4] = block[5];
+	block[5] = block[6];
+	block[6] = block[7];
+	block[7] = temp;
 
-/*
-	Function to generate initialization vector
-	@params None
-	@return (int) 0 if successful, -1 if failed
-*/
-uint32_t gen_key(){
+	// shift row 2
+	temp = block[8];
+	temp1 = block[9];
+	block[8] = block[10];
+	block[9] = block[11];
+	block[10] = temp;
+	block[11] = temp1;
 
-	for (int i = 0 ; i < MAX_BYTE; i++){
-		secret_key[i] = gen_alphanum();
-	}
+	// shift row 3
+	temp = block[15];
+	block[15] = block[14];
+	block[14] = block[13];
+	block[13] = block[12];
+	block[12] = temp;
+
 }
 
 /*-----------------------------------------------------------------------------------------------*/
 
-/*
-	Function to print the encryption result
-	@params None
-	@return None
-*/
-void print_encrypt_result() {
-
-	printf("IV: ");
-	for(int i = 0 ; i < MAX_BYTE; i++){
-		printf("%c", init_vector[i]);
-	}
-	printf("\nSECRET KEY: ");
-	for(int i = 0 ; i < MAX_BYTE; i++){
-		printf("%c", secret_key[i]);
-	}
-	printf("\n");
-}
 
 char* encrypt(char* ptext){
 
@@ -214,12 +217,25 @@ char* encrypt(char* ptext){
 	gen_key();
 	gen_iv();
 
-	uint8_t sample_key[16] = {0x00,0x00,0x00,0x00
-							,0x00,0x00,0x00,0x00
-							,0x00,0x00,0x00,0x00
-							,0x00,0x00,0x00,0x00};
+	uint8_t sample_key[32] = {0x00,0x01,0x02,0x03
+							,0x04,0x05,0x06,0x07
+							,0x08,0x09,0x0A,0x0B
+							,0x0C,0x0D,0x0E,0x0F,
+							0x10,0x11,0x12,0x13
+							,0x14,0x15,0x16,0x17
+							,0x18,0x19,0x1A,0x1B
+							,0x1C,0x1D,0x1E,0x1F};
 
-	key_schedule(sample_key);
+	key_expansion(sample_key);
+
+	uint8_t * block2 = sample_key + 16;
+	shift_rows(block2);
+	printf("rowshift:");
+	for(int i = 16; i < 32; i++){
+		printf("%x ", sample_key[i]);
+	}
+
+	// try the sub cipher in one block 
 	
 	print_encrypt_result();
 
