@@ -50,6 +50,7 @@ static const uint8_t R_CON[11] = { 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x4
 uint8_t init_vector[16]  = {0};
 uint8_t secret_key[16] = {0};
 uint8_t round_keys[11*16];
+uint8_t text_state[16001];
 
 bool random_flag = false;
 
@@ -109,12 +110,24 @@ void print_encrypt_result() {
 
 	printf("IV: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
-		printf("%c", init_vector[i]);
+		printf("%x ", init_vector[i]);
 	}
 	printf("\nSECRET KEY: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
-		printf("%c", secret_key[i]);
+		printf("%x ", secret_key[i]);
 	}
+	printf("\nCIPHERTEXT: ");
+	for(int i = 0 ; i < MAX_BYTE; i++){
+		printf("%x ", text_state[i]);
+	}
+	printf("\n");
+}
+
+void print_state(char* state_name, uint8_t* current_state){
+	printf("%s:",state_name);
+	for(int i = 0 ; i < MAX_BYTE; i++){
+		printf("%x ", current_state[i]);
+	};
 	printf("\n");
 }
 
@@ -131,11 +144,6 @@ void print_encrypt_result() {
 void key_expansion(uint8_t* key){
 	static const int N = 4;
 	static const int R = 11;
-
-	for(int i = 0 ; i < 16; i++){
-		printf("%x ", key[i]);
-	}
-	printf("\n");
 
 	int loop_count = 4 * R;
 	for(int i = 0; i < loop_count; i++){
@@ -159,11 +167,47 @@ void key_expansion(uint8_t* key){
 	}
 
 
-	// printf("expand key:");
-	// for(int i = 0 ; i < 176; i++){
-	// 	printf("%x ", round_keys[i]);
-	// }
-	// printf("\n");
+	printf("expand key:");
+	for(int i = 0 ; i < 176; i++){
+		printf("%x ", round_keys[i]);
+	}
+	printf("\n\n");
+}
+
+/*
+	Function to add an n-th expanded round key
+	@param (uint8_t* block) 			pointer to a block
+	@param (int round_key_index)		The n-th iteration of the round key used
+*/
+void add_round_key(uint8_t* block, int round_key_index){
+	uint8_t* round_key_pt = round_keys + (round_key_index * 16);
+	for (int i = 0 ; i < 16; i++){
+		block[i] ^= round_key_pt[i];
+	}
+}
+
+/*-----------------------------------------------------------------------------------------------*/
+
+/*--------------------------------------------S-BOX SUBSTITUTION---------------------------------*/
+
+/*
+	Function to perform the s-box substitution to a particular block
+	@params (uint8_t* block) pointer to a block
+*/
+void s_box_sub(uint8_t* block){
+	for(int i = 0 ; i < 16; i++){
+		block[i] = S_BOX[block[i]];
+	}
+}
+
+/*
+	Function to perform inverse s-box substitution
+	@params (uint8_t* block) pointer to a block
+*/
+void inv_s_box_sub(uint8_t* block){
+	for(int i = 0 ; i < 16; i++){
+		block[i] = INV_S_BOX[block[i]];
+	}
 }
 
 /*-----------------------------------------------------------------------------------------------*/
@@ -242,6 +286,34 @@ void inv_shift_rows(uint8_t* block){
 
 /*-----------------------------------------------------------------------------------------------*/
 
+/*--------------------------------------MIX COLUMNS----------------------------------------------*/
+
+/*
+	Function to perform the mix columns
+	@params (uint8_t* block) pointer to a block
+	@returns None
+*/
+void mix_columns(uint8_t* block){
+	uint8_t res_block[16] = {0};
+	for(int i = 0 ; i < 16; i++){
+		if(i < 4) 
+			res_block[i] = (2*block[i]) ^ (3*block[i+4]) ^ block[i+8] ^ block[i+12];
+		else if(i >= 4 && i < 8)
+			res_block[i] = block[i-4] ^ (2*block[i]) ^ (3*block[i+4]) ^ block[i+8];
+		else if(i >= 8 && i < 12)
+			res_block[i] = block[i-8] ^ block[i-4] ^ (2*block[i]) ^ (3*block[i+4]);
+		else
+			res_block[i] = (3*block[i-12]) ^ block[i-8] ^ block[i-4] ^ (2*block[i]);
+	}
+
+	for(int i = 0 ; i < 16; i++){
+		block[i] = res_block[i];
+	}
+
+}
+
+/*-----------------------------------------------------------------------------------------------*/
+
 
 char* encrypt(char* ptext){
 
@@ -249,33 +321,52 @@ char* encrypt(char* ptext){
 	gen_key();
 	gen_iv();
 
-	uint8_t sample_key[32] = {0x00,0x01,0x02,0x03
-							,0x04,0x05,0x06,0x07
-							,0x08,0x09,0x0A,0x0B
-							,0x0C,0x0D,0x0E,0x0F,
-							0x10,0x11,0x12,0x13
-							,0x14,0x15,0x16,0x17
-							,0x18,0x19,0x1A,0x1B
-							,0x1C,0x1D,0x1E,0x1F};
+	// copy the state 
+	strcpy(text_state, ptext);
 
-	key_expansion(sample_key);
+	// expand the randomly generated keys
+	key_expansion(secret_key);
 
-	uint8_t * block2 = sample_key + 16;
-	shift_rows(block2);
-	printf("rowshift:");
-	for(int i = 16; i < 32; i++){
-		printf("%x ", sample_key[i]);
+	// initial round key addition
+	add_round_key(text_state, 0);
+
+	// ONE BLOCK ONLY
+	uint8_t* current_block;
+	for(int r = 0 ; r < 10; r++){
+		printf("ITERATION %d\n", r);
+
+
+		for(int n = 0 ; n < 1; n++){
+			// set the current block
+			current_block = text_state + (16*n);
+			print_state("init", current_block);
+			// perform the cipher
+			s_box_sub(current_block);
+			print_state("sub", current_block);
+			shift_rows(current_block);
+			print_state("shiftrow", current_block);
+			add_round_key(current_block, r);
+			print_state("addroundkey", current_block);
+		}
 	}
-	printf("\n");
-	inv_shift_rows(block2);
-	printf("invrowshift:");
-	for(int i = 16; i < 32; i++){
-		printf("%x ", sample_key[i]);
-	}
-	printf("\n");
-
-	// try the sub cipher in one block 
 	
+	// last round without mix columns
+	printf("LAST ITERATION\n");
+	for(int n = 0 ; n < 1; n++){
+			// set the current block
+			current_block = text_state + (16*n);
+			print_state("init", current_block);
+			// perform the cipher
+			s_box_sub(current_block);
+			print_state("sub", current_block);
+			shift_rows(current_block);
+			print_state("shiftrow", current_block);
+			add_round_key(current_block, 10);
+			print_state("addroundkey", current_block);
+		}
+
+	// print the results
+	printf("\n\n");
 	print_encrypt_result();
 
 	return ptext;
