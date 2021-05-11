@@ -123,12 +123,59 @@ void print_encrypt_result() {
 	printf("\n");
 }
 
+/*
+	Function to print a sequence with label
+	@param (char* state_name)		The label
+	@param (uint8_t* current_state)	The state array
+*/
 void print_state(char* state_name, uint8_t* current_state){
 	printf("%s:",state_name);
 	for(int i = 0 ; i < MAX_BYTE; i++){
 		printf("%x ", current_state[i]);
 	};
 	printf("\n");
+}
+
+/*
+	Function to transpose a block
+	@param (uint8_t* block) 			pointer to a block
+
+*/
+void transpose(uint8_t* block){
+	for(int i = 0; i < 4; i++){
+		for(int j = i + 1; j < 4; j++){
+				uint8_t temp = block[4 * i + j];
+				block[4 * i + j] = block[4 * j + i];
+				block[4 * j + i] = temp;
+		}
+	}
+}
+
+/*
+	Galois multiply
+	ref: https://blog.csdn.net/shaosunrise/article/details/80174210
+	@param (uint8_t u) integer 
+	@param (uint8_t v) integer
+	@returns (uint8_t) result
+*/
+uint8_t g_mul(uint8_t u, uint8_t v){
+	uint8_t p = 0;
+
+    for (int i = 0; i < 8; ++i) {
+        if (u & 0x01) {
+            p ^= v;
+        }
+
+        int flag = (v & 0x80);
+        v <<= 1;
+        if (flag) {
+            v ^= 0x1B;  /* P(x) = x^8 + x^4 + x^3 + x + 1 */
+        }
+
+        u >>= 1;
+    }
+
+    return p;
 }
 
 /*-----------------------------------------------------------------------------------------------*/
@@ -166,12 +213,19 @@ void key_expansion(uint8_t* key){
 
 	}
 
-
 	printf("expand key:");
 	for(int i = 0 ; i < 176; i++){
 		printf("%x ", round_keys[i]);
 	}
 	printf("\n\n");
+
+	// transpose the round keys
+	uint8_t* current_block;
+	for(int i = 0; i < 11; i++){
+		current_block = round_keys + 16 * i;
+		transpose(current_block);
+	}
+
 }
 
 /*
@@ -297,13 +351,13 @@ void mix_columns(uint8_t* block){
 	uint8_t res_block[16] = {0};
 	for(int i = 0 ; i < 16; i++){
 		if(i < 4) 
-			res_block[i] = (2*block[i]) ^ (3*block[i+4]) ^ block[i+8] ^ block[i+12];
+			res_block[i] = g_mul(2, block[i]) ^ g_mul(3, block[i+4]) ^ block[i+8] ^ block[i+12];
 		else if(i >= 4 && i < 8)
-			res_block[i] = block[i-4] ^ (2*block[i]) ^ (3*block[i+4]) ^ block[i+8];
+			res_block[i] = block[i-4] ^ g_mul(2, block[i]) ^ g_mul(3, block[i+4]) ^ block[i+8];
 		else if(i >= 8 && i < 12)
-			res_block[i] = block[i-8] ^ block[i-4] ^ (2*block[i]) ^ (3*block[i+4]);
+			res_block[i] = block[i-8] ^ block[i-4] ^ g_mul(2, block[i]) ^ g_mul(3, block[i+4]);
 		else
-			res_block[i] = (3*block[i-12]) ^ block[i-8] ^ block[i-4] ^ (2*block[i]);
+			res_block[i] = g_mul(3, block[i-12]) ^ block[i-8] ^ block[i-4] ^ g_mul(2, block[i]);
 	}
 
 	for(int i = 0 ; i < 16; i++){
@@ -327,12 +381,18 @@ char* encrypt(char* ptext){
 	// expand the randomly generated keys
 	key_expansion(secret_key);
 
+	// TRANSPOSE ALL BLOCKS
+	uint8_t* current_block;
+	for(int n = 0 ; n < 1; n++){
+		current_block = text_state + (16*n);
+		transpose(current_block);
+	}
+
 	// initial round key addition
 	add_round_key(text_state, 0);
 
 	// ONE BLOCK ONLY
-	uint8_t* current_block;
-	for(int r = 0 ; r < 10; r++){
+	for(int r = 1 ; r < 10; r++){
 		printf("ITERATION %d\n", r);
 
 
@@ -340,30 +400,40 @@ char* encrypt(char* ptext){
 			// set the current block
 			current_block = text_state + (16*n);
 			print_state("init", current_block);
-			// perform the cipher
 			s_box_sub(current_block);
 			print_state("sub", current_block);
 			shift_rows(current_block);
 			print_state("shiftrow", current_block);
+			mix_columns(current_block);
+			print_state("mix columns", current_block);
 			add_round_key(current_block, r);
 			print_state("addroundkey", current_block);
+			printf("\n\n");
 		}
 	}
 	
 	// last round without mix columns
 	printf("LAST ITERATION\n");
 	for(int n = 0 ; n < 1; n++){
-			// set the current block
-			current_block = text_state + (16*n);
-			print_state("init", current_block);
-			// perform the cipher
-			s_box_sub(current_block);
-			print_state("sub", current_block);
-			shift_rows(current_block);
-			print_state("shiftrow", current_block);
-			add_round_key(current_block, 10);
-			print_state("addroundkey", current_block);
-		}
+		// set the current block
+		current_block = text_state + (16*n);
+
+		print_state("init", current_block);
+		// perform the cipher
+		s_box_sub(current_block);
+		print_state("sub", current_block);
+		shift_rows(current_block);
+		print_state("shiftrow", current_block);
+		add_round_key(current_block, 10);
+		print_state("addroundkey", current_block);
+
+	}
+
+	// TRANSPOSE ALL BLOCKS BACK
+	for(int n = 0 ; n < 1; n++){
+		current_block = text_state + (16*n);
+		transpose(current_block);
+	}
 
 	// print the results
 	printf("\n\n");
