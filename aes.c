@@ -423,6 +423,11 @@ void inv_mix_columns(uint8_t* block){
 
 /*-----------------------------------------AES Wrappers------------------------------------------*/
 
+/*
+	Performs a runthrough of AES-128 on a block
+	@params (uint8_t* current_block) pointer to the current block processed
+	@return None
+*/
 void cipher(uint8_t* current_block){
 
 
@@ -478,7 +483,7 @@ int encrypt(char* ptext){
 	
 	// block pointers
 	uint8_t* current_block;
-	uint8_t prev_cipher[16] = {0};
+	uint8_t prev_cipher[16];
 	for(int i = 0 ; i < 16; i++) prev_cipher[i] = init_vector[i];
 
 	// ONE BLOCK ONLY
@@ -486,13 +491,13 @@ int encrypt(char* ptext){
 		// set the current block
 		current_block = text_state + (16*n);
 
-		// // CBC XOR
-		// for(int i = 0 ; i < 16; i++) current_block ^= prev_cipher[i];
+		// CBC XOR
+		for(int i = 0 ; i < 16; i++) current_block[i] ^= prev_cipher[i];
 
 		cipher(current_block);
 
-		// // set the chain
-		// for(int i = 0 ; i , 16; i++) prev_cipher[i] = current_block[i];
+		// set the chain
+		for(int i = 0 ; i < 16; i++) prev_cipher[i] = current_block[i];
 	}
 	
 	
