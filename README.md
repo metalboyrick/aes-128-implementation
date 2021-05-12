@@ -37,6 +37,9 @@ main.exe <mode> <text>
 - The ```<text>``` is the text to be processed.
 	- For encryption, simply putting the plaintext is enough.
 	- For decryption, you need to put the parameters in the following order: ```<text> <init_vector> <secret_key>```
+		- Note that all the text must be in HEXADECIMAL FORM
+
+The output would all be in hexadecimal form.
 
 To clean the compilation files , use:
 ```
