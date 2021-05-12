@@ -29,6 +29,10 @@ Then you can run the program with the following command:
 ```
 ./main.out <mode> <text>
 ```
+or (If you are using Windows with ```cygwin```):
+```
+main.exe <mode> <text>
+```
 - The ```<mode>``` parameter toggles encryption or decryption, for encryption, use ```-e```, for decryption use ```-d```.
 - The ```<text>``` is the text to be processed.
 	- For encryption, simply putting the plaintext is enough.
