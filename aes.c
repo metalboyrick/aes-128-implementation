@@ -110,15 +110,37 @@ void print_encrypt_result() {
 
 	printf("IV: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
-		printf("%x ", init_vector[i]);
+		printf("%02x", init_vector[i]);
 	}
 	printf("\nSECRET KEY: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
-		printf("%x ", secret_key[i]);
+		printf("%02x", secret_key[i]);
 	}
 	printf("\nCIPHERTEXT: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
-		printf("%x ", text_state[i]);
+		printf("%02x", text_state[i]);
+	}
+	printf("\n");
+}
+
+/*
+	Function to print the decryption result
+	@params None
+	@return None
+*/
+void print_decrypt_result() {
+
+	printf("IV: ");
+	for(int i = 0 ; i < MAX_BYTE; i++){
+		printf("%02x", init_vector[i]);
+	}
+	printf("\nSECRET KEY: ");
+	for(int i = 0 ; i < MAX_BYTE; i++){
+		printf("%02x", secret_key[i]);
+	}
+	printf("\nPLAINTEXT: ");
+	for(int i = 0 ; i < MAX_BYTE; i++){
+		printf("%c", text_state[i]);
 	}
 	printf("\n");
 }
@@ -178,6 +200,22 @@ uint8_t g_mul(uint8_t u, uint8_t v){
     return p;
 }
 
+/*
+	Converts hex string to byte arrays
+	@params (char* str) the string to be converted
+	@params (int str_len) length of string
+	@params (uint8_t* dst_arr) the destination array to be copied to
+	@returns None
+*/
+void str_to_byte(char* str, int str_len, uint8_t* dst_arr){
+    char* pos = str;
+    for (int count = 0; count < str_len; count++) {
+        sscanf(pos, "%2hhx", &dst_arr[count]);
+        pos += 2;
+    }
+}
+
+
 /*-----------------------------------------------------------------------------------------------*/
 
 /*--------------------------------------------ADD ROUND KEYS-------------------------------------*/
@@ -212,12 +250,6 @@ void key_expansion(uint8_t* key){
 		}
 
 	}
-
-	printf("expand key:");
-	for(int i = 0 ; i < 176; i++){
-		printf("%x ", round_keys[i]);
-	}
-	printf("\n\n");
 
 	// transpose the round keys
 	uint8_t* current_block;
@@ -366,6 +398,28 @@ void mix_columns(uint8_t* block){
 
 }
 
+/* 
+	Function to invert the mix columns
+	@params (uint8_t* block) pointer to a block
+	@returns None
+*/
+void inv_mix_columns(uint8_t* block){
+	uint8_t res_block[16] = {0};
+	for(int i = 0 ; i < 16; i++){
+		if(i < 4) 
+			res_block[i] = g_mul(0x0e, block[i]) ^ g_mul(0x0b, block[i+4]) ^ g_mul(0x0d, block[i+8]) ^ g_mul(0x09, block[i+12]);
+		else if(i >= 4 && i < 8)
+			res_block[i] = g_mul(0x09, block[i-4]) ^ g_mul(0x0e, block[i]) ^ g_mul(0x0b, block[i+4]) ^ g_mul(0x0d, block[i+8]);
+		else if(i >= 8 && i < 12)
+			res_block[i] = g_mul(0x0d, block[i-8]) ^ g_mul(0x09, block[i-4]) ^ g_mul(0x0e, block[i]) ^ g_mul(0x0b, block[i+4]);
+		else
+			res_block[i] = g_mul(0x0b, block[i-12]) ^ g_mul(0x0d, block[i-8]) ^ g_mul(0x09, block[i-4]) ^ g_mul(0x0e, block[i]);
+	}
+
+	for(int i = 0 ; i < 16; i++){
+		block[i] = res_block[i];
+	}
+}
 /*-----------------------------------------------------------------------------------------------*/
 
 
@@ -393,40 +447,27 @@ char* encrypt(char* ptext){
 
 	// ONE BLOCK ONLY
 	for(int r = 1 ; r < 10; r++){
-		printf("ITERATION %d\n", r);
-
-
 		for(int n = 0 ; n < 1; n++){
 			// set the current block
 			current_block = text_state + (16*n);
-			print_state("init", current_block);
+
+			// perform the cipher
 			s_box_sub(current_block);
-			print_state("sub", current_block);
 			shift_rows(current_block);
-			print_state("shiftrow", current_block);
 			mix_columns(current_block);
-			print_state("mix columns", current_block);
 			add_round_key(current_block, r);
-			print_state("addroundkey", current_block);
-			printf("\n\n");
 		}
 	}
 	
 	// last round without mix columns
-	printf("LAST ITERATION\n");
 	for(int n = 0 ; n < 1; n++){
 		// set the current block
 		current_block = text_state + (16*n);
 
-		print_state("init", current_block);
 		// perform the cipher
 		s_box_sub(current_block);
-		print_state("sub", current_block);
 		shift_rows(current_block);
-		print_state("shiftrow", current_block);
 		add_round_key(current_block, 10);
-		print_state("addroundkey", current_block);
-
 	}
 
 	// TRANSPOSE ALL BLOCKS BACK
@@ -436,14 +477,66 @@ char* encrypt(char* ptext){
 	}
 
 	// print the results
-	printf("\n\n");
 	print_encrypt_result();
 
 	return ptext;
 }
 
-char* decrypt(char* ctext){
-	printf("decrypt: %s\n", ctext);
+char* decrypt(char* ctext, char* iv, char* key){
+
+	// copy all contents to the local arrays
+	str_to_byte(key, 16, secret_key);
+	str_to_byte(iv, 16, init_vector);
+	str_to_byte(ctext, 16, text_state);
+
+	// expand the randomly generated keys
+	key_expansion(secret_key);
+
+
+	// TRANSPOSE ALL BLOCKS
+	uint8_t* current_block;
+	for(int n = 0 ; n < 1; n++){
+		current_block = text_state + (16*n);
+		transpose(current_block);
+	}
+
+	// last round without mix columns
+	for(int n = 0 ; n < 1; n++){
+		// set the current block
+		current_block = text_state + (16*n);
+
+		// perform the cipher
+		add_round_key(current_block, 10);
+		inv_shift_rows(current_block);
+		inv_s_box_sub(current_block);
+	}
+
+	
+
+	for(int r = 1 ; r < 10; r++){
+		for(int n = 0 ; n < 1; n++){
+			// set the current block
+			current_block = text_state + (16*n);
+
+			// decipher
+			add_round_key(current_block, 10 - r);
+			inv_mix_columns(current_block);
+			inv_shift_rows(current_block);
+			inv_s_box_sub(current_block);
+		}
+	}
+	
+	// add the last round key 
+	add_round_key(text_state, 0);
+
+
+	// TRANSPOSE ALL BLOCKS BACK
+	for(int n = 0 ; n < 1; n++){
+		current_block = text_state + (16*n);
+		transpose(current_block);
+	}
+
+	print_decrypt_result();
 	return ctext;
 }
 
