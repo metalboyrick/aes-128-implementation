@@ -106,7 +106,7 @@ uint32_t gen_key(){
 	@params None
 	@return None
 */
-void print_encrypt_result() {
+void print_encrypt_result(int str_len) {
 
 	printf("IV: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
@@ -117,7 +117,7 @@ void print_encrypt_result() {
 		printf("%02x", secret_key[i]);
 	}
 	printf("\nCIPHERTEXT: ");
-	for(int i = 0 ; i < MAX_BYTE; i++){
+	for(int i = 0 ; i < str_len; i++){
 		printf("%02x", text_state[i]);
 	}
 	printf("\n");
@@ -128,7 +128,7 @@ void print_encrypt_result() {
 	@params None
 	@return None
 */
-void print_decrypt_result() {
+void print_decrypt_result(int str_len) {
 
 	printf("IV: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
@@ -139,7 +139,7 @@ void print_decrypt_result() {
 		printf("%02x", secret_key[i]);
 	}
 	printf("\nPLAINTEXT: ");
-	for(int i = 0 ; i < MAX_BYTE; i++){
+	for(int i = 0 ; i < str_len; i++){
 		printf("%c", text_state[i]);
 	}
 	printf("\n");
@@ -423,11 +423,19 @@ void inv_mix_columns(uint8_t* block){
 /*-----------------------------------------------------------------------------------------------*/
 
 
-char* encrypt(char* ptext){
+int encrypt(char* ptext){
 
 	// generate the secret keys and the init vectors
 	gen_key();
 	gen_iv();
+
+	//get the string length
+	size_t ptext_len = strlen(ptext);
+	size_t block_len = 0;
+
+	// check for length
+	if(ptext_len % 16 != 0) return -1;
+	else block_len = ptext_len / 16;
 
 	// copy the state 
 	strcpy(text_state, ptext);
@@ -437,17 +445,19 @@ char* encrypt(char* ptext){
 
 	// TRANSPOSE ALL BLOCKS
 	uint8_t* current_block;
-	for(int n = 0 ; n < 1; n++){
+	for(int n = 0 ; n < block_len; n++){
 		current_block = text_state + (16*n);
 		transpose(current_block);
+
+		// initial round key addition
+		add_round_key(current_block, 0);
 	}
 
-	// initial round key addition
-	add_round_key(text_state, 0);
+	
 
 	// ONE BLOCK ONLY
 	for(int r = 1 ; r < 10; r++){
-		for(int n = 0 ; n < 1; n++){
+		for(int n = 0 ; n < block_len; n++){
 			// set the current block
 			current_block = text_state + (16*n);
 
@@ -460,7 +470,7 @@ char* encrypt(char* ptext){
 	}
 	
 	// last round without mix columns
-	for(int n = 0 ; n < 1; n++){
+	for(int n = 0 ; n < block_len; n++){
 		// set the current block
 		current_block = text_state + (16*n);
 
@@ -471,23 +481,32 @@ char* encrypt(char* ptext){
 	}
 
 	// TRANSPOSE ALL BLOCKS BACK
-	for(int n = 0 ; n < 1; n++){
+	for(int n = 0 ; n < block_len; n++){
 		current_block = text_state + (16*n);
 		transpose(current_block);
 	}
 
 	// print the results
-	print_encrypt_result();
+	print_encrypt_result(ptext_len);
 
-	return ptext;
+	return 0;
 }
 
-char* decrypt(char* ctext, char* iv, char* key){
+int decrypt(char* ctext, char* iv, char* key){
+
+	//get the string length
+	size_t ctext_len = strlen(ctext);
+	size_t block_len = 0;
+
+	// check for length
+	if(ctext_len % 16 != 0) return -1;
+	else block_len = ctext_len / 16;
+
 
 	// copy all contents to the local arrays
 	str_to_byte(key, 16, secret_key);
 	str_to_byte(iv, 16, init_vector);
-	str_to_byte(ctext, 16, text_state);
+	str_to_byte(ctext, ctext_len, text_state);
 
 	// expand the randomly generated keys
 	key_expansion(secret_key);
@@ -495,13 +514,13 @@ char* decrypt(char* ctext, char* iv, char* key){
 
 	// TRANSPOSE ALL BLOCKS
 	uint8_t* current_block;
-	for(int n = 0 ; n < 1; n++){
+	for(int n = 0 ; n < block_len; n++){
 		current_block = text_state + (16*n);
 		transpose(current_block);
 	}
 
 	// last round without mix columns
-	for(int n = 0 ; n < 1; n++){
+	for(int n = 0 ; n < block_len; n++){
 		// set the current block
 		current_block = text_state + (16*n);
 
@@ -511,10 +530,9 @@ char* decrypt(char* ctext, char* iv, char* key){
 		inv_s_box_sub(current_block);
 	}
 
-	
-
+	// subsequent rounds
 	for(int r = 1 ; r < 10; r++){
-		for(int n = 0 ; n < 1; n++){
+		for(int n = 0 ; n < block_len; n++){
 			// set the current block
 			current_block = text_state + (16*n);
 
@@ -526,17 +544,18 @@ char* decrypt(char* ctext, char* iv, char* key){
 		}
 	}
 	
-	// add the last round key 
-	add_round_key(text_state, 0);
-
-
 	// TRANSPOSE ALL BLOCKS BACK
-	for(int n = 0 ; n < 1; n++){
+	for(int n = 0 ; n < block_len; n++){
+		
 		current_block = text_state + (16*n);
+
+		// add the first round key 
+		add_round_key(current_block, 0);
+
 		transpose(current_block);
 	}
 
-	print_decrypt_result();
-	return ctext;
+	print_decrypt_result(ctext_len / 2);
+	return 0;
 }
 
