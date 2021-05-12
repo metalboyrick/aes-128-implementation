@@ -10,7 +10,13 @@ int main(int argc, char* argv[]){
 	}
 
 	if (strcmp(argv[1], "-e") == 0){
-		encrypt(argv[2]);
+		int out = encrypt(argv[2]);
+		if (out == -1){
+			printf("Invalid plaintext!\n");
+		} else {
+			printf("Encryption successful!\n");
+		}
+		
 	} else if (strcmp(argv[1], "-d") == 0){
 		if(argc <= 3) {
 			printf("Error!\n");
@@ -18,7 +24,7 @@ int main(int argc, char* argv[]){
 		}
 		decrypt(argv[2], argv[3], argv[4]);
 	} else {
-		printf("Error!\n");
+		printf("Invalid arguments!\n");
 	}
 
 

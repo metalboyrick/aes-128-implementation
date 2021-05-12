@@ -215,7 +215,6 @@ void str_to_byte(char* str, int str_len, uint8_t* dst_arr){
     }
 }
 
-
 /*-----------------------------------------------------------------------------------------------*/
 
 /*--------------------------------------------ADD ROUND KEYS-------------------------------------*/
@@ -422,6 +421,40 @@ void inv_mix_columns(uint8_t* block){
 }
 /*-----------------------------------------------------------------------------------------------*/
 
+/*-----------------------------------------AES Wrappers------------------------------------------*/
+
+void cipher(uint8_t* current_block){
+
+
+	// Transpose the block
+	transpose(current_block);
+
+	// initial round key addition
+	add_round_key(current_block, 0);
+
+	for(int r = 1 ; r < 10; r++){
+
+		// perform the cipher
+		s_box_sub(current_block);
+		shift_rows(current_block);
+		mix_columns(current_block);
+		add_round_key(current_block, r);
+			
+	}
+
+	// last round perform the cipher
+
+	s_box_sub(current_block);
+	shift_rows(current_block);
+	add_round_key(current_block, 10);
+	
+
+	// Transpose the block back
+	transpose(current_block);
+
+}
+
+/*-----------------------------------------------------------------------------------------------*/
 
 int encrypt(char* ptext){
 
@@ -442,49 +475,27 @@ int encrypt(char* ptext){
 
 	// expand the randomly generated keys
 	key_expansion(secret_key);
-
-	// TRANSPOSE ALL BLOCKS
-	uint8_t* current_block;
-	for(int n = 0 ; n < block_len; n++){
-		current_block = text_state + (16*n);
-		transpose(current_block);
-
-		// initial round key addition
-		add_round_key(current_block, 0);
-	}
-
 	
+	// block pointers
+	uint8_t* current_block;
+	uint8_t prev_cipher[16] = {0};
+	for(int i = 0 ; i < 16; i++) prev_cipher[i] = init_vector[i];
 
 	// ONE BLOCK ONLY
-	for(int r = 1 ; r < 10; r++){
-		for(int n = 0 ; n < block_len; n++){
-			// set the current block
-			current_block = text_state + (16*n);
-
-			// perform the cipher
-			s_box_sub(current_block);
-			shift_rows(current_block);
-			mix_columns(current_block);
-			add_round_key(current_block, r);
-		}
-	}
-	
-	// last round without mix columns
 	for(int n = 0 ; n < block_len; n++){
 		// set the current block
 		current_block = text_state + (16*n);
 
-		// perform the cipher
-		s_box_sub(current_block);
-		shift_rows(current_block);
-		add_round_key(current_block, 10);
-	}
+		// // CBC XOR
+		// for(int i = 0 ; i < 16; i++) current_block ^= prev_cipher[i];
 
-	// TRANSPOSE ALL BLOCKS BACK
-	for(int n = 0 ; n < block_len; n++){
-		current_block = text_state + (16*n);
-		transpose(current_block);
+		cipher(current_block);
+
+		// // set the chain
+		// for(int i = 0 ; i , 16; i++) prev_cipher[i] = current_block[i];
 	}
+	
+	
 
 	// print the results
 	print_encrypt_result(ptext_len);
