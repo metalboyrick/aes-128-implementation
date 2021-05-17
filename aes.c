@@ -566,6 +566,11 @@ int decrypt(char* ctext, char* iv, char* key, bool random_mode){
 	size_t ctext_len = strlen(ctext);
 	size_t block_len = 0;
 
+	if(random_mode == true){
+		ctext_len = 2000;
+		block_len = 125;
+	}
+
 	// check for length
 	if(ctext_len % 16 != 0) return -1;
 	else{
@@ -620,7 +625,6 @@ int decrypt(char* ctext, char* iv, char* key, bool random_mode){
 	
 	if (random_mode == true){
 		print_decrypt_result(ctext_len);
-		printf("Something went wrong \n");
 	}
 	else{
 		printf("%d\n", ctext_len);
@@ -654,16 +658,11 @@ int random_ops(){
 	}
 	ctext[2000] = '\0';
 
-	printf("lelen: %zu\n", strlen(ctext));
-	for(int i = 0 ; i < 2000; i++){
-		printf("%02x ", ctext[i]);
-	}
-
 	// stringify the creds
 	for(int i = 0 ; i < 16; i++){
 		iv[i] = init_vector[i];
 		sk[i] = secret_key[i];
 	}
 
-	printf("%d", decrypt(ctext, iv, sk, true));
+	decrypt(ctext, iv, sk, true);
 }
