@@ -33,11 +33,12 @@ or (If you are using Windows with ```cygwin```):
 ```
 main.exe <mode> <text>
 ```
-- The ```<mode>``` parameter toggles encryption or decryption, for encryption, use ```-e```, for decryption use ```-d```.
+- The ```<mode>``` parameter toggles encryption or decryption, for encryption, use ```-e```, for decryption use ```-d```. For the random mode (encrypt+decrypt 16Kbits of text), simply use ```-r```
 - The ```<text>``` is the text to be processed.
 	- For encryption, simply putting the plaintext is enough.
 	- For decryption, you need to put the parameters in the following order: ```<text> <init_vector> <secret_key>```
 		- Note that all the text must be in HEXADECIMAL FORM
+	- This is empty for random mode
 
 The output would all be in hexadecimal form.
 
