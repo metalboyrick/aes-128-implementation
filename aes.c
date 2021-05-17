@@ -50,7 +50,7 @@ static const uint8_t R_CON[11] = { 0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x4
 uint8_t init_vector[16]  = {0};
 uint8_t secret_key[16] = {0};
 uint8_t round_keys[11*16];
-uint8_t text_state[16001];
+uint8_t text_state[16000];
 
 bool random_flag = false;
 
@@ -81,7 +81,7 @@ uint8_t gen_alphanum(){
 	@params None
 	@return (int) 0 if successful, -1 if failed
 */
-uint32_t gen_iv(){
+uint8_t gen_iv(){
 
 	for (int i = 0 ; i < MAX_BYTE; i++){
 		init_vector[i] = gen_alphanum();
@@ -94,11 +94,24 @@ uint32_t gen_iv(){
 	@params None
 	@return (int) 0 if successful, -1 if failed
 */
-uint32_t gen_key(){
+uint8_t gen_key(){
 
 	for (int i = 0 ; i < MAX_BYTE; i++){
 		secret_key[i] = gen_alphanum();
 	}
+}
+
+/*
+	Function to generate random plaintext
+	@params None
+	@returns None
+*/
+void gen_ptext(char* ptext){
+	for(int i = 0 ; i < 2000; i++){
+		ptext[i] = gen_alphanum();
+	}
+
+	ptext[2000] = '\0';
 }
 
 /*
@@ -108,19 +121,22 @@ uint32_t gen_key(){
 */
 void print_encrypt_result(int str_len) {
 
+	printf("---------------ENCRYPTION RESULTS---------------------\n\n");
+
 	printf("IV: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
 		printf("%02x", init_vector[i]);
 	}
-	printf("\nSECRET KEY: ");
+	printf("\n\nSECRET KEY: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
 		printf("%02x", secret_key[i]);
 	}
-	printf("\nCIPHERTEXT: ");
+	printf("\n\nCIPHERTEXT: ");
 	for(int i = 0 ; i < str_len; i++){
 		printf("%02x", text_state[i]);
 	}
-	printf("\n");
+	printf("\n\n");
+	fflush(stdout);
 }
 
 /*
@@ -130,19 +146,22 @@ void print_encrypt_result(int str_len) {
 */
 void print_decrypt_result(int str_len) {
 
+	printf("---------------DECRYPTION RESULTS---------------------\n\n");
+
 	printf("IV: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
 		printf("%02x", init_vector[i]);
 	}
-	printf("\nSECRET KEY: ");
+	printf("\n\nSECRET KEY: ");
 	for(int i = 0 ; i < MAX_BYTE; i++){
 		printf("%02x", secret_key[i]);
 	}
-	printf("\nPLAINTEXT: ");
+	printf("\n\nPLAINTEXT: ");
 	for(int i = 0 ; i < str_len; i++){
 		printf("%c", text_state[i]);
 	}
-	printf("\n");
+	printf("\n\n");
+	fflush(stdout);
 }
 
 /*
@@ -150,9 +169,9 @@ void print_decrypt_result(int str_len) {
 	@param (char* state_name)		The label
 	@param (uint8_t* current_state)	The state array
 */
-void print_state(char* state_name, uint8_t* current_state){
+void print_state(char* state_name, uint8_t* current_state, int len){
 	printf("%s:",state_name);
-	for(int i = 0 ; i < MAX_BYTE; i++){
+	for(int i = 0 ; i < len; i++){
 		printf("%x ", current_state[i]);
 	};
 	printf("\n");
@@ -541,7 +560,7 @@ int encrypt(char* ptext){
 	return 0;
 }
 
-int decrypt(char* ctext, char* iv, char* key){
+int decrypt(char* ctext, char* iv, char* key, bool random_mode){
 
 	//get the string length
 	size_t ctext_len = strlen(ctext);
@@ -549,17 +568,31 @@ int decrypt(char* ctext, char* iv, char* key){
 
 	// check for length
 	if(ctext_len % 16 != 0) return -1;
-	else block_len = ctext_len / 16;
+	else{
+		if (random_mode == false) block_len = ctext_len / 32;
+		else block_len = ctext_len / 16;
+	} 
 
 
 	// copy all contents to the local arrays
-	str_to_byte(key, 16, secret_key);
-	str_to_byte(iv, 16, init_vector);
-	str_to_byte(ctext, ctext_len, text_state);
+	if (random_mode == false) {
+		str_to_byte(key, 16, secret_key);
+		str_to_byte(iv, 16, init_vector);
+		str_to_byte(ctext, ctext_len, text_state);
+	} else {
+		for(int i = 0 ; i < 2000; i++){
+			text_state[i] = ctext[i];
+		}
+		for(int i = 0 ; i < 16; i++){
+			secret_key[i] = key[i];
+			init_vector[i] = iv[i];
+		}
+	}
 
 	// block pointers
 	uint8_t* current_block;
 	uint8_t next_cipher[16];
+	uint8_t prev_cipher[16];
 	for(int i = 0 ; i < 16; i++) next_cipher[i] = init_vector[i];
 
 	// expand the randomly generated keys
@@ -571,18 +604,66 @@ int decrypt(char* ctext, char* iv, char* key){
 		// set the current block
 		current_block = text_state + (16*n);
 
+		// get the chain
+		for(int i = 0 ; i < 16; i++) prev_cipher[i] = current_block[i];
+
 		decipher(current_block);
 
 		// CBC XOR
 		for(int i = 0 ; i < 16; i++) current_block[i] ^= next_cipher[i];
 
 		// get the chain
-		for(int i = 0 ; i < 16; i++) next_cipher[i] = current_block[i];
+		for(int i = 0 ; i < 16; i++) next_cipher[i] = prev_cipher[i];
 
 
 	}
 	
-	print_decrypt_result(ctext_len / 2);
+	if (random_mode == true){
+		print_decrypt_result(ctext_len);
+		printf("Something went wrong \n");
+	}
+	else{
+		printf("%d\n", ctext_len);
+		print_decrypt_result(ctext_len / 2);
+	}
 	return 0;
 }
 
+int random_ops(){
+
+	setvbuf (stdout, NULL, _IONBF, BUFSIZ);
+
+	uint8_t ptext[2001];
+	uint8_t ctext[2001];
+	uint8_t iv[16];
+	uint8_t sk[16];
+	gen_ptext(ptext);
+
+	// print the random plaintext
+	printf("\nGENERATED PLAINTEXT: ");
+	for(int i = 0 ; i < 2000; i++){
+		printf("%c", ptext[i]);
+	}
+	printf("\n\n");
+
+	encrypt(ptext);
+
+	// stringify the encryption results
+	for(int i = 0 ; i < 2000; i++){
+		ctext[i] = text_state[i];
+	}
+	ctext[2000] = '\0';
+
+	printf("lelen: %zu\n", strlen(ctext));
+	for(int i = 0 ; i < 2000; i++){
+		printf("%02x ", ctext[i]);
+	}
+
+	// stringify the creds
+	for(int i = 0 ; i < 16; i++){
+		iv[i] = init_vector[i];
+		sk[i] = secret_key[i];
+	}
+
+	printf("%d", decrypt(ctext, iv, sk, true));
+}

@@ -14,6 +14,7 @@ extern uint8_t secret_key[16];
 
 // interface functions for encrypting and decrypting
 extern int encrypt(char* ptext);
-extern int decrypt(char* ctext, char* iv, char* key);
+extern int decrypt(char* ctext, char* iv, char* key, bool random_mode);
+extern int random_ops();
 
 #endif // AES_H

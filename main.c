@@ -4,7 +4,7 @@
 
 int main(int argc, char* argv[]){
 
-	if(argc <= 2){
+	if(argc <= 1){
 		printf("Error!\n");
 		return 0;
 	}
@@ -16,13 +16,14 @@ int main(int argc, char* argv[]){
 		} else {
 			printf("Encryption successful!\n");
 		}
-		
 	} else if (strcmp(argv[1], "-d") == 0){
 		if(argc <= 3) {
 			printf("Error!\n");
 			return 0;
 		}
-		decrypt(argv[2], argv[3], argv[4]);
+		decrypt(argv[2], argv[3], argv[4], false);
+	} else if (strcmp(argv[1], "-r") == 0){
+		random_ops();
 	} else {
 		printf("Invalid arguments!\n");
 	}
