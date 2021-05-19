@@ -1,14 +1,14 @@
 make_aes: main.o aes.o
-	gcc -g main.o aes.o -o main.out
+	gcc -O main.o aes.o -o main.out
 
 windows: main.o aes.o
-	gcc -g main.o aes.o -o main.exe
+	gcc -O main.o aes.o -o main.exe
 
 main.o: main.c
-	gcc -g -c main.c
+	gcc -c -O main.c
 
 aes.o: aes.h aes.c 
-	gcc -g -c aes.c
+	gcc -c -O aes.c
 
 clean:
 	rm -f *.out
